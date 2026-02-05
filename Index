@@ -1,0 +1,638 @@
+
+<!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <meta name="description" content="Hide secret messages in mundane conversations">
+        <meta name="theme-color" content="#0f3460">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="StegoMsg">
+        <title>Steganographic Messenger - PWA</title>
+        
+        <!-- PWA Manifest -->
+        <link rel="manifest" href="manifest.json">
+        
+        <!-- Favicon and Apple Touch Icons -->
+        <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+        <link rel="apple-touch-icon" href="icon-512.png">
+        
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                -webkit-tap-highlight-color: transparent;
+            }
+    
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                color: #fff;
+                height: 100vh;
+                overflow: hidden;
+                position: fixed;
+                width: 100%;
+            }
+    
+            .container {
+                max-width: 600px;
+                margin: 0 auto;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                background: rgba(15, 52, 96, 0.3);
+                backdrop-filter: blur(10px);
+            }
+    
+            .header {
+                background: linear-gradient(135deg, #0f3460 0%, #533483 100%);
+                padding: max(env(safe-area-inset-top), 15px) 20px 15px 20px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+                z-index: 10;
+            }
+    
+            .header h1 {
+                font-size: 20px;
+                font-weight: 600;
+                margin-bottom: 5px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+    
+            .header p {
+                font-size: 12px;
+                opacity: 0.8;
+            }
+    
+            .mode-toggle {
+                display: flex;
+                gap: 10px;
+                margin-top: 12px;
+            }
+    
+            .mode-btn {
+                flex: 1;
+                padding: 10px;
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                background: rgba(255, 255, 255, 0.1);
+                color: white;
+                border-radius: 12px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 600;
+                transition: all 0.3s ease;
+                touch-action: manipulation;
+            }
+    
+            .mode-btn.active {
+                background: rgba(255, 255, 255, 0.9);
+                color: #0f3460;
+                border-color: white;
+            }
+    
+            .main-content {
+                flex: 1;
+                overflow-y: auto;
+                padding: 20px;
+                -webkit-overflow-scrolling: touch;
+            }
+    
+            .section {
+                display: none;
+                animation: fadeIn 0.3s ease;
+            }
+    
+            .section.active {
+                display: block;
+            }
+    
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+    
+            .card {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 16px;
+                padding: 20px;
+                margin-bottom: 20px;
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            }
+    
+            .card h3 {
+                font-size: 16px;
+                margin-bottom: 12px;
+                color: #4fc3f7;
+            }
+    
+            textarea, input[type="text"] {
+                width: 100%;
+                padding: 14px;
+                background: rgba(255, 255, 255, 0.95);
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                border-radius: 12px;
+                color: #1a1a2e;
+                font-size: 15px;
+                font-family: inherit;
+                resize: vertical;
+                transition: all 0.3s ease;
+                touch-action: manipulation;
+            }
+    
+            textarea:focus, input[type="text"]:focus {
+                outline: none;
+                border-color: #4fc3f7;
+                background: white;
+            }
+    
+            textarea {
+                min-height: 100px;
+            }
+    
+            .btn {
+                width: 100%;
+                padding: 16px;
+                background: linear-gradient(135deg, #4fc3f7 0%, #2196f3 100%);
+                color: white;
+                border: none;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                margin-top: 12px;
+                box-shadow: 0 4px 15px rgba(79, 195, 247, 0.3);
+                touch-action: manipulation;
+            }
+    
+            .btn:active {
+                transform: scale(0.98);
+                box-shadow: 0 2px 8px rgba(79, 195, 247, 0.3);
+            }
+    
+            .output-box {
+                background: rgba(0, 0, 0, 0.3);
+                border: 2px solid rgba(79, 195, 247, 0.5);
+                border-radius: 12px;
+                padding: 16px;
+                margin-top: 16px;
+                min-height: 80px;
+                font-family: 'Courier New', monospace;
+                font-size: 14px;
+                line-height: 1.6;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                max-height: 200px;
+                overflow-y: auto;
+            }
+    
+            .info {
+                background: rgba(79, 195, 247, 0.2);
+                border-left: 4px solid #4fc3f7;
+                padding: 12px;
+                border-radius: 8px;
+                margin-top: 12px;
+                font-size: 13px;
+                line-height: 1.5;
+            }
+    
+            .copy-btn {
+                background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%);
+                margin-top: 12px;
+                box-shadow: 0 4px 15px rgba(102, 187, 106, 0.3);
+            }
+    
+            .label {
+                display: block;
+                font-size: 13px;
+                font-weight: 600;
+                margin-bottom: 8px;
+                color: #4fc3f7;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+    
+            /* Install prompt */
+            .install-prompt {
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%);
+                padding: 16px;
+                border-radius: 12px;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+                display: none;
+                align-items: center;
+                gap: 12px;
+                z-index: 1000;
+                animation: slideUp 0.3s ease;
+            }
+    
+            @keyframes slideUp {
+                from { transform: translateY(100px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+    
+            .install-prompt.show {
+                display: flex;
+            }
+    
+            .install-text {
+                flex: 1;
+                font-size: 14px;
+                font-weight: 600;
+            }
+    
+            .install-btn {
+                padding: 10px 20px;
+                background: white;
+                color: #43a047;
+                border: none;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                touch-action: manipulation;
+            }
+    
+            .close-btn {
+                background: rgba(255, 255, 255, 0.3);
+                color: white;
+                padding: 8px 12px;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 12px;
+                touch-action: manipulation;
+            }
+    
+            /* Responsive adjustments */
+            @media (max-width: 480px) {
+                .main-content {
+                    padding: 15px;
+                }
+                
+                .card {
+                    padding: 16px;
+                }
+                
+                textarea, input[type="text"] {
+                    font-size: 16px; /* Prevents zoom on iOS */
+                }
+            }
+    
+            /* Safe area for notched devices */
+            @supports (padding: max(0px)) {
+                .container {
+                    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🔐 Steganographic Messenger</h1>
+                <p>Hide secrets in plain sight</p>
+                <div class="mode-toggle">
+                    <button class="mode-btn active" data-mode="encode">Encode Message</button>
+                    <button class="mode-btn" data-mode="decode">Decode Message</button>
+                </div>
+            </div>
+    
+            <div class="main-content">
+                <!-- Encode Section -->
+                <div class="section active" id="encode-section">
+                    <div class="card">
+                        <h3>Your Secret Message</h3>
+                        <textarea id="secretMessage" placeholder="Enter your secret message here..."></textarea>
+                    </div>
+    
+                    <div class="card">
+                        <h3>Received Message (Optional)</h3>
+                        <textarea id="receivedMessage" placeholder="Paste the message you received to respond to (optional)..."></textarea>
+                        <div class="info">
+                            💡 If you paste a received message, the mundane conversation will be loosely related to it for more natural context.
+                        </div>
+                    </div>
+    
+                    <button class="btn" id="encodeBtn">🔒 Generate Hidden Message</button>
+    
+                    <div class="card" id="outputCard" style="display: none;">
+                        <h3>Mundane Message (Send This)</h3>
+                        <div class="output-box" id="outputMessage"></div>
+                        <button class="btn copy-btn" id="copyBtn">📋 Copy to Clipboard</button>
+                        <div class="info" style="margin-top: 12px;">
+                            ✅ Share this message normally. Your secret is hidden inside!
+                        </div>
+                    </div>
+                </div>
+    
+                <!-- Decode Section -->
+                <div class="section" id="decode-section">
+                    <div class="card">
+                        <h3>Received Mundane Message</h3>
+                        <textarea id="encryptedMessage" placeholder="Paste the mundane message you received..."></textarea>
+                    </div>
+    
+                    <button class="btn" id="decodeBtn">🔓 Extract Hidden Message</button>
+    
+                    <div class="card" id="decodedCard" style="display: none;">
+                        <h3>Hidden Secret Message</h3>
+                        <div class="output-box" id="decodedMessage"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <!-- Install Prompt -->
+        <div class="install-prompt" id="installPrompt">
+            <div class="install-text">📱 Install this app for quick access!</div>
+            <button class="install-btn" id="installBtn">Install</button>
+            <button class="close-btn" id="closeInstall">×</button>
+        </div>
+    
+        <script>
+            // PWA Installation
+            let deferredPrompt;
+            const installPrompt = document.getElementById('installPrompt');
+            const installBtn = document.getElementById('installBtn');
+            const closeInstall = document.getElementById('closeInstall');
+    
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                installPrompt.classList.add('show');
+            });
+    
+            installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    deferredPrompt = null;
+                    installPrompt.classList.remove('show');
+                }
+            });
+    
+            closeInstall.addEventListener('click', () => {
+                installPrompt.classList.remove('show');
+            });
+    
+            // Register Service Worker
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/service-worker.js')
+                        .then(reg => console.log('Service Worker registered'))
+                        .catch(err => console.log('Service Worker registration failed:', err));
+                });
+            }
+    
+            // Mode Toggle
+            const modeBtns = document.querySelectorAll('.mode-btn');
+            const sections = document.querySelectorAll('.section');
+    
+            modeBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const mode = btn.dataset.mode;
+                    
+                    modeBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    sections.forEach(s => s.classList.remove('active'));
+                    document.getElementById(`${mode}-section`).classList.add('active');
+                });
+            });
+    
+            // Steganography Functions
+            function textToBinary(text) {
+                return text.split('').map(char => 
+                    char.charCodeAt(0).toString(2).padStart(8, '0')
+                ).join('');
+            }
+    
+            function binaryToText(binary) {
+                const bytes = binary.match(/.{8}/g) || [];
+                return bytes.map(byte => String.fromCharCode(parseInt(byte, 2))).join('');
+            }
+    
+            const mundaneTemplates = {
+                greetings: [
+                    "Hey! How's it going?",
+                    "Hi there! Hope you're doing well.",
+                    "Hello! Long time no chat.",
+                    "Hey! What's new with you?",
+                    "Hi! How have you been?"
+                ],
+                responses: [
+                    "Thanks for your message!",
+                    "Great to hear from you!",
+                    "I appreciate you reaching out.",
+                    "Good to hear from you!",
+                    "Thanks for getting back to me!"
+                ],
+                topics: {
+                    weather: [
+                        "The weather has been quite unpredictable lately.",
+                        "It's been really nice outside these past few days.",
+                        "Can't believe how hot/cold it's been!",
+                        "Perfect weather for a walk today."
+                    ],
+                    work: [
+                        "Work has been keeping me pretty busy.",
+                        "Just finished a big project at work.",
+                        "The usual grind at the office, you know how it is.",
+                        "Work's been interesting lately."
+                    ],
+                    weekend: [
+                        "Any plans for the weekend?",
+                        "Hope you have a great weekend!",
+                        "Looking forward to the weekend.",
+                        "Weekend couldn't come soon enough!"
+                    ],
+                    food: [
+                        "Tried this amazing new restaurant recently.",
+                        "Been cooking a lot at home lately.",
+                        "Had the best coffee this morning.",
+                        "Thinking about what to have for dinner."
+                    ],
+                    general: [
+                        "Just wanted to check in and see how things are going.",
+                        "Been thinking about our last conversation.",
+                        "There's something I wanted to run by you.",
+                        "Hope everything is going smoothly on your end."
+                    ]
+                },
+                closings: [
+                    "Let me know what you think!",
+                    "Talk to you soon!",
+                    "Catch you later!",
+                    "Take care!",
+                    "Looking forward to hearing from you!"
+                ]
+            };
+    
+            function analyzeReceivedMessage(message) {
+                if (!message || message.trim() === '') return null;
+                
+                const lower = message.toLowerCase();
+                const keywords = {
+                    weather: ['weather', 'rain', 'sun', 'hot', 'cold', 'snow'],
+                    work: ['work', 'job', 'office', 'project', 'meeting', 'busy'],
+                    weekend: ['weekend', 'saturday', 'sunday', 'plans'],
+                    food: ['food', 'restaurant', 'dinner', 'lunch', 'coffee', 'eat']
+                };
+                
+                for (const [topic, words] of Object.entries(keywords)) {
+                    if (words.some(word => lower.includes(word))) {
+                        return topic;
+                    }
+                }
+                return 'general';
+            }
+    
+            function generateMundaneText(binary, receivedMsg) {
+                const topic = analyzeReceivedMessage(receivedMsg) || 'general';
+                const useResponse = receivedMsg && receivedMsg.trim() !== '';
+                
+                let mundane = useResponse 
+                    ? mundaneTemplates.responses[Math.floor(Math.random() * mundaneTemplates.responses.length)]
+                    : mundaneTemplates.greetings[Math.floor(Math.random() * mundaneTemplates.greetings.length)];
+                
+                mundane += ' ';
+                
+                const topicSentences = mundaneTemplates.topics[topic];
+                mundane += topicSentences[Math.floor(Math.random() * topicSentences.length)];
+                mundane += ' ';
+                
+                const binaryArray = binary.split('');
+                let pointer = 0;
+                
+                const words = mundane.split(' ');
+                const modifiedWords = words.map(word => {
+                    if (pointer < binaryArray.length && word.length > 0) {
+                        const bit = binaryArray[pointer];
+                        pointer++;
+                        
+                        if (bit === '1') {
+                            return word + (Math.random() > 0.5 ? ' ' : '  ');
+                        } else {
+                            return word + ' ';
+                        }
+                    }
+                    return word + ' ';
+                });
+                
+                mundane = modifiedWords.join('');
+                
+                while (pointer < binaryArray.length) {
+                    const additionalTopic = Object.keys(mundaneTemplates.topics)[
+                        Math.floor(Math.random() * Object.keys(mundaneTemplates.topics).length)
+                    ];
+                    const sentences = mundaneTemplates.topics[additionalTopic];
+                    const sentence = sentences[Math.floor(Math.random() * sentences.length)];
+                    
+                    const words = sentence.split(' ');
+                    const encoded = words.map(word => {
+                        if (pointer < binaryArray.length) {
+                            const bit = binaryArray[pointer];
+                            pointer++;
+                            return word + (bit === '1' ? '  ' : ' ');
+                        }
+                        return word + ' ';
+                    }).join('');
+                    
+                    mundane += encoded;
+                }
+                
+                mundane += mundaneTemplates.closings[Math.floor(Math.random() * mundaneTemplates.closings.length)];
+                
+                return mundane.replace(/\s+/g, ' ').trim() + ' ';
+            }
+    
+            function extractBinary(text) {
+                const segments = text.split(/(\s+)/);
+                let binary = '';
+                
+                for (let i = 0; i < segments.length; i++) {
+                    if (/^\s+$/.test(segments[i])) {
+                        const spaceCount = segments[i].length;
+                        if (spaceCount === 2) {
+                            binary += '1';
+                        } else if (spaceCount === 1) {
+                            binary += '0';
+                        }
+                    }
+                }
+                
+                return binary;
+            }
+    
+            // Encode Button
+            document.getElementById('encodeBtn').addEventListener('click', () => {
+                const secret = document.getElementById('secretMessage').value;
+                const received = document.getElementById('receivedMessage').value;
+                
+                if (!secret.trim()) {
+                    alert('Please enter a secret message!');
+                    return;
+                }
+                
+                const binary = textToBinary(secret);
+                const mundane = generateMundaneText(binary, received);
+                
+                document.getElementById('outputMessage').textContent = mundane;
+                document.getElementById('outputCard').style.display = 'block';
+                
+                // Scroll to output
+                document.getElementById('outputCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+    
+            // Copy Button
+            document.getElementById('copyBtn').addEventListener('click', async () => {
+                const text = document.getElementById('outputMessage').textContent;
+                
+                try {
+                    await navigator.clipboard.writeText(text);
+                    const btn = document.getElementById('copyBtn');
+                    const originalText = btn.textContent;
+                    btn.textContent = '✅ Copied!';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                    }, 2000);
+                } catch (err) {
+                    alert('Failed to copy. Please copy manually.');
+                }
+            });
+    
+            // Decode Button
+            document.getElementById('decodeBtn').addEventListener('click', () => {
+                const encrypted = document.getElementById('encryptedMessage').value;
+                
+                if (!encrypted.trim()) {
+                    alert('Please paste a message to decode!');
+                    return;
+                }
+                
+                const binary = extractBinary(encrypted);
+                
+                if (!binary) {
+                    document.getElementById('decodedMessage').textContent = '❌ No hidden message found!';
+                    document.getElementById('decodedCard').style.display = 'block';
+                    return;
+                }
+                
+                const decoded = binaryToText(binary);
+                document.getElementById('decodedMessage').textContent = decoded || '❌ Could not decode message!';
+                document.getElementById('decodedCard').style.display = 'block';
+                
+                // Scroll to output
+                document.getElementById('decodedCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+        </script>
+    </body>
+    </html>
